@@ -130,46 +130,21 @@ export default class Lezhin extends Connector {
 
     async _getChapters(manga) {
         await this._initializeAccount();
-        const script = `
-            new Promise((resolve, reject) => {
-                // wait until episodes have been updated with purchase info ...
-                setTimeout(() => {
-                        let chapters = __LZ_PRODUCT__.all // __LZ_PRODUCT__.product.episodes
-                        .filter(chapter => {
-                            if(chapter.purchased) {
-                                return true;
-                            }
-                            if(chapter.coin === 0) {
-                                return true;
-                            }
-                            if(chapter.freedAt && chapter.freedAt < Date.now()) {
-                                return true;
-                            }
-                            if(chapter.prefree && chapter.prefree.closeTimer && chapter.prefree.closeTimer.expiredAt > Date.now()) {
-                                return true;
-                            }
-                            return false;
-                        })
-                        .map(chapter => {
-                            return {
-                                id: chapter.name, // chapter.id,
-                                title: chapter.display.displayName + ' - ' + chapter.display.title,
-                                language: '${this.locale}'
-                            };
-                        });
-                        resolve(chapters);
-                }, 2500);
-            });
-        `;
         const request = new Request(`${this.url}/comic/${manga.id}`, this.requestOptions);
-        return await Engine.Request.fetchUI(request, script);
+        const data = await this.fetchDOM(request, 'ul[class*=style_episodeListContents__list] li a');
+        return data.map(element => {
+            return {
+                id: this.getRootRelativeOrAbsoluteLink(element, this.url),
+                title: element.querySelector('div[class*=style_episodeListContentsItem__title]').textContent.trim()
+            };
+        });
     }
 
     async _getPages(chapter) {
         await this._initializeAccount();
 
         //check if chapter is purchased
-        const script = `
+        /*       const script = `
             new Promise((resolve, reject) => {
                 // wait until episodes have been updated with purchase info ...
                 setTimeout(() => {
@@ -179,19 +154,20 @@ export default class Lezhin extends Connector {
             });
         `;
         let request = new Request(`${this.url}/comic/${chapter.manga.id}`, this.requestOptions);
-        const purchased = await Engine.Request.fetchUI(request, script);
+        const purchased = await Engine.Request.fetchUI(request, script);*/
+        const purchased = false;
 
         const uri = new URL('https://www.lezhin.com/lz-api/v2/inventory_groups/comic_viewer');
         const params = new URLSearchParams ({
             'platform': 'web',
             'store': 'web',
             'alias': chapter.manga.id,
-            'name': chapter.id,
+            'name': chapter.id.split('/').pop(),
             'preload': false,
             'type': 'comic_episode'
         });
         uri.search = params.toString();
-        request = new Request(uri, this.requestOptions);
+        const request = new Request(uri, this.requestOptions);
         const data = await this.fetchJSON(request);
 
         //default to scrollsInfo if pagesInfo doesnt exists (same structure)
