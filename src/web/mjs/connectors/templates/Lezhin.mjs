@@ -142,20 +142,24 @@ export default class Lezhin extends Connector {
 
     async _getPages(chapter) {
         await this._initializeAccount();
-
+/*   Our electron is too old, page cant load, so we cant determine chapter purchased status reliably, we assume its false
         //check if chapter is purchased
-        /*       const script = `
+        const script = `
             new Promise((resolve, reject) => {
-                // wait until episodes have been updated with purchase info ...
-                setTimeout(() => {
-                        let chapter = __LZ_PRODUCT__.all.filter(chapter => chapter.name == "${chapter.id}");
-                        resolve(chapter[0].purchased);
-                }, 2500);
+                try {
+                    setTimeout(() => {
+                        resolve(__LZ_DATA__.purchased.includes(__LZ_DATA__.episode.id));
+                    }, 2500);
+                } catch(error) {
+                    reject(error);
+                }
             });
         `;
         let request = new Request(`${this.url}/comic/${chapter.manga.id}`, this.requestOptions);
-        const purchased = await Engine.Request.fetchUI(request, script);*/
-        const purchased = false;
+        const purchased = await Engine.Request.fetchUI(request, script);
+*/
+        let request = undefined;
+        const purchased = false; 
 
         const uri = new URL('https://www.lezhin.com/lz-api/v2/inventory_groups/comic_viewer');
         const params = new URLSearchParams ({
@@ -167,7 +171,7 @@ export default class Lezhin extends Connector {
             'type': 'comic_episode'
         });
         uri.search = params.toString();
-        const request = new Request(uri, this.requestOptions);
+        request = new Request(uri, this.requestOptions);
         const data = await this.fetchJSON(request);
 
         //default to scrollsInfo if pagesInfo doesnt exists (same structure)
@@ -192,7 +196,6 @@ export default class Lezhin extends Connector {
         const extension = this.config.forceJPEG.value ? '.jpg' : '.webp';
         const imageurl = new URL('/v2' + payload.url + extension, this.cdnURL);
         const purchased = payload.purchased ? payload.purchased : false;
-        //purchased = purchased || (episode.freedAt && episode.freedAt < Date.now());
         const subscribed = data.data.extra.subscribed;
         const updatedAt = episode.updatedAt;
 
@@ -242,9 +245,13 @@ export default class Lezhin extends Connector {
         */
         const checkscript = `
             new Promise((resolve, reject) => {
-                setTimeout(() => {
+                try {
+                    setTimeout(() => {
                         resolve(__LZ_CONFIG__);
-                },2500);
+                    },2500);
+            	  } catch (error) {
+            		    reject(error)
+                }
             });
         `;
         const request = new Request(`${this.url}/account`, this.requestOptions);
